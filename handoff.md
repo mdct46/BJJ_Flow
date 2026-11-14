@@ -40,8 +40,13 @@ opening `index.html` from disk won't work.
 Because of stale-while-revalidate, a code change shows on the *second* reload. In
 DevTools > Application > Service Workers, tick "Update on reload" while developing.
 
-**Install on a phone:** the app has to be served over HTTPS (GitHub Pages, Netlify
-or similar static hosting). Then use "Add to Home Screen" (iOS Safari) or the install
+**Hosting:** GitHub Pages at https://mdct46.github.io/BJJ_Flow/ (repo
+https://github.com/mdct46/BJJ_Flow, public). `.github/workflows/pages.yml` publishes
+the `app/` folder on every push to `main`, which takes about a minute. To release:
+bump the version in `sw.js` and `js/version.js`, commit, push. Installed copies pick
+up the new version on their next launch.
+
+**Install on a phone:** open the URL above. Then use "Add to Home Screen" (iOS Safari) or the install
 prompt (Android Chrome). User data lives on the device. Settings has backup export/import.
 
 ### What changed from the prototype
