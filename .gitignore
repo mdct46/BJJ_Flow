@@ -1,0 +1,10 @@
+# OS and OneDrive clutter
+desktop.ini
+Thumbs.db
+.DS_Store
+~$*
+*.tmp
+
+# Local tooling
+__pycache__/
+.vscode/

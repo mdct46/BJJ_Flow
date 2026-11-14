@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Positional Map — BJJ Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14181B;
+    --panel: #1D2429;
+    --panel-hi: #242C32;
+    --line: #333D44;
+    --ink: #ECE7DC;
+    --ink-dim: #8B95A0;
+    --gold: #C9A227;
+    --slate: #6E8CA0;
+    --grey: #7A8590;
+    --pass: #3E7CB1;
+    --sweep: #9B6FB0;
+    --escape: #4FA377;
+    --transition: #7A8590;
+    --sub: #B0392C;
+    --lvl0: #4A5560;
+    --lvl1: #C9A227;
+    --lvl2: #3E7CB1;
+    --lvl3: #4FA377;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'JetBrains Mono',monospace;height:100%;}
+  .display{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:0.02em;}
+
+  .app{display:flex;flex-direction:column;height:100vh;}
+
+  header{
+    padding:18px 20px 14px;
+    border-bottom:1px solid var(--line);
+    flex-shrink:0;
+    background:linear-gradient(180deg, #171C20, var(--bg));
+  }
+  .title-row{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  h1{
+    font-size:22px;font-weight:700;margin:0;color:var(--ink);
+    letter-spacing:0.03em;
+  }
+  h1 .accent{color:var(--gold);}
+  .subtitle{font-size:11px;color:var(--ink-dim);margin-top:4px;letter-spacing:0.03em;}
+
+  .legend{
+    display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:10px;color:var(--ink-dim);
+  }
+  .legend-item{display:flex;align-items:center;gap:6px;}
+  .swatch{width:16px;height:3px;border-radius:2px;}
+  .swatch.dot{width:9px;height:9px;border-radius:50%;}
+
+  .filters{
+    display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;
+  }
+  .filter-btn{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;letter-spacing:0.05em;text-transform:uppercase;
+    background:var(--panel);border:1px solid var(--line);color:var(--ink-dim);
+    padding:6px 10px;border-radius:3px;cursor:pointer;transition:all .15s ease;
+  }
+  .filter-btn.active{color:var(--bg);border-color:transparent;}
+  .filter-btn[data-type="pass"].active{background:var(--pass);}
+  .filter-btn[data-type="sweep"].active{background:var(--sweep);}
+  .filter-btn[data-type="escape"].active{background:var(--escape);}
+  .filter-btn[data-type="transition"].active{background:var(--transition);}
+  .filter-btn[data-type="all"].active{background:var(--ink);}
+
+  main{flex:1;position:relative;overflow:hidden;display:flex;min-height:0;}
+  .map-view{flex:1;display:flex;min-height:0;min-width:0;}
+
+  .view-tabs{display:flex;gap:4px;margin-left:auto;}
+  .view-tab{
+    font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.05em;text-transform:uppercase;
+    background:none;border:1px solid var(--line);color:var(--ink-dim);
+    padding:6px 14px;border-radius:3px;cursor:pointer;transition:all .15s ease;
+  }
+  .view-tab.active{background:var(--gold);border-color:var(--gold);color:var(--bg);font-weight:600;}
+
+  .canvas-wrap{
+    flex:1;overflow:auto;position:relative;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(201,162,39,0.04), transparent 40%),
+      var(--bg);
+  }
+  svg{display:block;}
+
+  .node-group{cursor:pointer;}
+  .node-rect{
+    fill:var(--panel);stroke-width:2px;transition:fill .15s ease, stroke .15s ease;
+  }
+  .node-group:hover .node-rect{fill:var(--panel-hi);}
+  .node-group.selected .node-rect{fill:var(--panel-hi);stroke-width:3px;}
+  .node-label{
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;fill:var(--ink);
+    text-transform:uppercase;letter-spacing:0.01em;pointer-events:none;
+  }
+  .node-sub{
+    font-family:'JetBrains Mono',monospace;font-size:9px;fill:var(--ink-dim);
+    text-transform:uppercase;letter-spacing:0.06em;pointer-events:none;
+  }
+  .node-group.dimmed{opacity:0.25;}
+  .edge{fill:none;stroke-width:2px;opacity:0.85;transition:opacity .15s ease, stroke-width .15s ease;cursor:pointer;}
+  .edge.dimmed{opacity:0.06;}
+  .edge:hover, .edge.highlighted{stroke-width:3.5px;opacity:1;}
+  .edge-tick{stroke-width:2px;}
+  .edge-tick.dimmed{opacity:0.06;}
+
+  /* side panel */
+  .panel{
+    width:340px;flex-shrink:0;border-left:1px solid var(--line);
+    background:var(--panel);overflow-y:auto;
+    transform:translateX(0);transition:transform .25s ease;
+  }
+  .panel.empty{display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;}
+  .panel-empty-text{color:var(--ink-dim);font-size:12px;line-height:1.7;max-width:220px;}
+  .panel-header{
+    padding:20px 20px 14px;border-bottom:1px solid var(--line);position:relative;
+  }
+  .panel-close{
+    display:none;position:absolute;top:12px;right:12px;width:32px;height:32px;
+    background:var(--panel-hi);border:1px solid var(--line);border-radius:50%;
+    color:var(--ink);font-size:18px;line-height:1;cursor:pointer;
+  }
+  .panel-adv{
+    display:inline-block;font-size:9px;letter-spacing:0.08em;text-transform:uppercase;
+    padding:3px 8px;border-radius:2px;margin-bottom:8px;color:var(--bg);font-weight:600;
+  }
+  .panel-title{font-family:'Oswald',sans-serif;font-size:24px;font-weight:700;text-transform:uppercase;margin:0 0 6px;}
+  .panel-desc{font-size:11.5px;color:var(--ink-dim);line-height:1.6;}
+
+  .panel-section{padding:16px 20px;border-bottom:1px solid var(--line);}
+  .panel-section:last-child{border-bottom:none;}
+  .section-label{
+    font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--ink-dim);
+    margin-bottom:10px;font-weight:600;
+  }
+  .tag-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .tag{
+    font-size:10.5px;padding:4px 9px;border-radius:2px;border:1px solid var(--sub);
+    color:var(--ink);background:rgba(176,57,44,0.12);
+  }
+  .sub-list{display:flex;flex-direction:column;gap:6px;}
+  .sub-item{border:1px solid var(--line);border-radius:4px;overflow:hidden;background:rgba(176,57,44,0.05);}
+  .sub-toggle{
+    width:100%;text-align:left;background:none;border:none;color:var(--ink);
+    font-family:'JetBrains Mono',monospace;font-size:11.5px;padding:9px 10px;
+    cursor:pointer;display:flex;align-items:center;gap:8px;
+  }
+  .sub-toggle-chevron{color:var(--sub);font-size:10px;transition:transform .15s ease;display:inline-block;}
+  .sub-toggle.open .sub-toggle-chevron{transform:rotate(90deg);}
+  .sub-toggle-chevron.open{transform:rotate(90deg);}
+  .sub-steps-wrap{max-height:0;overflow:hidden;transition:max-height .2s ease;}
+  .sub-steps-wrap.open{max-height:400px;}
+  .sub-steps{
+    margin:0;padding:2px 16px 12px 28px;font-size:11px;color:var(--ink-dim);line-height:1.6;
+  }
+  .sub-steps li{margin-bottom:4px;}
+  .sub-steps li::marker{color:var(--sub);}
+  .conn-list{display:flex;flex-direction:column;gap:8px;}
+  .conn-item{
+    display:flex;align-items:center;gap:8px;font-size:11.5px;cursor:pointer;
+    padding:6px 8px;border-radius:3px;transition:background .15s ease;
+  }
+  .conn-item:hover{background:rgba(255,255,255,0.04);}
+  .conn-tick{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+  .conn-text b{color:var(--ink);font-weight:600;}
+  .conn-text span{color:var(--ink-dim);display:block;font-size:9.5px;margin-top:1px;}
+
+  /* Glossary view */
+  .glossary-view{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;}
+  .glossary-search-bar{
+    padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;
+    background:var(--panel);
+  }
+  .glossary-search{
+    width:100%;background:var(--bg);border:1px solid var(--line);color:var(--ink);
+    font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 12px;border-radius:4px;
+    outline:none;
+  }
+  .glossary-search:focus{border-color:var(--gold);}
+  .glossary-body{flex:1;overflow-y:auto;padding:18px 20px 60px;max-width:820px;margin:0 auto;width:100%;}
+  .glossary-section{margin-bottom:26px;}
+  .glossary-section-title{
+    font-family:'Oswald',sans-serif;font-size:16px;font-weight:600;text-transform:uppercase;
+    letter-spacing:0.03em;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:8px;
+  }
+  .glossary-section-count{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-dim);font-weight:400;}
+  .glossary-empty{color:var(--ink-dim);font-size:12px;padding:30px 0;text-align:center;}
+  .gloss-item{border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-bottom:6px;background:var(--panel);}
+  .gloss-toggle{
+    width:100%;text-align:left;background:none;border:none;color:var(--ink);
+    font-family:'JetBrains Mono',monospace;font-size:12px;padding:10px 12px;
+    cursor:pointer;display:flex;align-items:center;gap:9px;
+  }
+  .gloss-toggle .chev{font-size:10px;transition:transform .15s ease;display:inline-block;flex-shrink:0;}
+  .gloss-toggle.open .chev{transform:rotate(90deg);}
+  .gloss-toggle .gloss-name{font-weight:600;flex:1;}
+  .gloss-toggle .gloss-tag{
+    font-size:9px;letter-spacing:0.05em;text-transform:uppercase;padding:2px 7px;border-radius:2px;
+    color:var(--bg);font-weight:600;flex-shrink:0;
+  }
+  .gloss-steps-wrap{max-height:0;overflow:hidden;transition:max-height .2s ease;}
+  .gloss-steps-wrap.open{max-height:1000px;}
+  .gloss-variant{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
+  .gloss-variant-pos{color:var(--ink-dim);font-size:10px;}
+  .gloss-detail{padding:2px 16px 14px 31px;font-size:11px;color:var(--ink-dim);line-height:1.6;}
+  .gloss-detail .gloss-route{color:var(--ink);margin-bottom:8px;font-size:11px;}
+  .gloss-detail ol{margin:0;padding-left:16px;}
+  .gloss-detail li{margin-bottom:4px;}
+  .gloss-detail li::marker{color:var(--sub);}
+  .gloss-positions{margin-top:8px;color:var(--ink-dim);font-size:10px;}
+  .gloss-positions b{color:var(--ink);}
+
+  /* My Game view */
+  .game-view{flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden;}
+  .game-top{
+    display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap;
+    padding:18px 20px 6px;border-bottom:1px solid var(--line);background:var(--panel);flex-shrink:0;
+  }
+  .radar-wrap{flex-shrink:0;}
+  .level-legend{display:flex;flex-direction:column;gap:8px;font-size:11px;}
+  .level-legend-item{display:flex;align-items:center;gap:8px;color:var(--ink-dim);}
+  .level-legend-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;}
+  .level-legend-count{margin-left:auto;color:var(--ink);font-family:'JetBrains Mono',monospace;font-size:10px;padding-left:14px;}
+
+  .practice-next{padding:14px 20px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--panel-hi);}
+  .practice-next-title{
+    font-family:'Oswald',sans-serif;font-size:13px;font-weight:600;text-transform:uppercase;
+    letter-spacing:0.04em;color:var(--gold);margin-bottom:10px;
+  }
+  .practice-list{display:flex;flex-direction:column;gap:6px;}
+  .practice-item{
+    display:flex;align-items:center;gap:10px;font-size:11.5px;padding:8px 10px;
+    border:1px solid var(--line);border-radius:4px;background:var(--panel);cursor:pointer;
+  }
+  .practice-item:hover{background:var(--panel-hi);}
+  .practice-item .ptag{
+    font-size:9px;letter-spacing:0.05em;text-transform:uppercase;padding:2px 7px;border-radius:2px;
+    color:var(--bg);font-weight:600;flex-shrink:0;
+  }
+  .practice-item .pname{font-weight:600;color:var(--ink);flex:1;}
+  .practice-item .preason{color:var(--ink-dim);font-size:9.5px;display:block;margin-top:1px;}
+  .practice-empty{color:var(--ink-dim);font-size:11.5px;text-align:center;padding:8px 0;}
+
+  .skill-row-inner{display:flex;align-items:center;gap:10px;flex:1;}
+  .level-btn{
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:0.04em;text-transform:uppercase;
+    border:none;border-radius:3px;padding:5px 9px;cursor:pointer;color:var(--bg);font-weight:700;
+    flex-shrink:0;white-space:nowrap;transition:filter .15s ease;
+  }
+  .level-btn:hover{filter:brightness(1.12);}
+
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  @media (max-width: 760px){
+    .panel{
+      position:fixed;bottom:0;left:0;right:0;top:auto;width:100%;
+      max-height:62vh;border-left:none;border-top:1px solid var(--line);
+      border-radius:14px 14px 0 0;box-shadow:0 -10px 30px rgba(0,0,0,0.5);
+      transform:translateY(100%);
+    }
+    .panel.open{transform:translateY(0);}
+    .panel-close{display:block;}
+    .panel.empty{display:none;}
+    main{position:relative;}
+    .legend{display:none;}
+    .glossary-body{padding:14px 14px 60px;}
+    #radarSvg{width:250px;height:250px;}
+    .game-top{padding:14px 14px 4px;gap:10px;}
+    .level-legend{flex-direction:row;flex-wrap:wrap;gap:12px;}
+    .level-legend-count{padding-left:6px;margin-left:0;}
+    .practice-next{padding:12px 14px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="title-row">
+      <h1>THE POSITIONAL <span class="accent">MAP</span></h1>
+      <div class="view-tabs" id="viewTabs">
+        <button class="view-tab active" data-view="map">Map</button>
+        <button class="view-tab" data-view="glossary">Glossary</button>
+        <button class="view-tab" data-view="game">My Game</button>
+      </div>
+    </div>
+    <div class="subtitle">passes · sweeps · escapes · submissions — the grammar of a BJJ match, traced position to position</div>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch dot" style="background:var(--gold)"></span> top control</div>
+      <div class="legend-item"><span class="swatch dot" style="background:var(--slate)"></span> bottom / disadvantage</div>
+      <div class="legend-item"><span class="swatch dot" style="background:var(--grey)"></span> neutral</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--pass)"></span> pass (top advances)</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--sweep)"></span> sweep (bottom reverses)</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--escape)"></span> escape (return to safety)</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--transition)"></span> transition / entry</div>
+      <div class="legend-item"><span class="swatch dot" style="background:var(--sub)"></span> submission</div>
+    </div>
+    <div class="filters" id="filters">
+      <button class="filter-btn active" data-type="all">All flow</button>
+      <button class="filter-btn" data-type="pass">Passes</button>
+      <button class="filter-btn" data-type="sweep">Sweeps</button>
+      <button class="filter-btn" data-type="escape">Escapes</button>
+      <button class="filter-btn" data-type="transition">Transitions</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="map-view" id="mapView">
+      <div class="canvas-wrap" id="canvasWrap">
+        <svg id="svg" viewBox="0 0 1360 900" width="1360" height="900"></svg>
+      </div>
+      <aside class="panel empty" id="panel">
+        <div class="panel-empty-text">Tap any position on the map to see how a fight moves through it — the passes and sweeps that lead in, the submissions available, and the escapes back to safety.</div>
+      </aside>
+    </div>
+
+    <div class="glossary-view" id="glossaryView" style="display:none;">
+      <div class="glossary-search-bar">
+        <input type="text" id="glossarySearch" class="glossary-search" placeholder="Search submissions, passes, sweeps, escapes, transitions…" autocomplete="off">
+      </div>
+      <div class="glossary-body" id="glossaryBody"></div>
+    </div>
+
+    <div class="game-view" id="gameView" style="display:none;">
+      <div class="game-top">
+        <div class="radar-wrap">
+          <svg id="radarSvg" viewBox="0 0 340 340" width="340" height="340"></svg>
+        </div>
+        <div class="level-legend" id="levelLegend"></div>
+      </div>
+      <div class="practice-next" id="practiceNext"></div>
+      <div class="glossary-search-bar">
+        <input type="text" id="gameSearch" class="glossary-search" placeholder="Search your skills…" autocomplete="off">
+      </div>
+      <div class="glossary-body" id="gameBody"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const ADV_COLOR = { top:'var(--gold)', bottom:'var(--slate)', neutral:'var(--grey)' };
+const ADV_COLOR_HEX = { top:'#C9A227', bottom:'#6E8CA0', neutral:'#7A8590' };
+const TYPE_COLOR = { pass:'#3E7CB1', sweep:'#9B6FB0', escape:'#4FA377', transition:'#7A8590' };
+const TYPE_NOUN = { pass:'Pass', sweep:'Sweep', escape:'Escape', transition:'Transition' };
+
+const POSITIONS = [
+  {id:'standing', name:'Standing', sub:'neutral / feet', adv:'neutral', x:680, y:60, w:150, h:56,
+    desc:'Grips and feet. The exchange usually ends here in one of two ways: a takedown, or one player pulling guard.',
+    subs:['Guillotine','D\u2019Arce (off sprawl)','Anaconda']},
+
+  {id:'closedguard', name:'Closed Guard', sub:'bottom', adv:'bottom', x:190, y:230, w:165, h:56,
+    desc:'Legs locked around the opponent\u2019s waist. A strong defensive base and a real attacking position — the bottom player controls distance and dictates the pace.',
+    subs:['Armbar','Triangle choke','Omoplata','Kimura','Guillotine']},
+
+  {id:'butterflyguard', name:'Butterfly Guard', sub:'bottom', adv:'bottom', x:430, y:230, w:165, h:56,
+    desc:'Seated, hooks inside the opponent\u2019s legs, off-balancing with the upper body. Built for elevation sweeps at close range rather than submissions.',
+    subs:['Guillotine']},
+
+  {id:'openguard', name:'Open Guard', sub:'bottom', adv:'bottom', x:670, y:230, w:165, h:56,
+    desc:'Legs unlocked, feet and shins used to control distance and grips. Family of guards (De La Riva, spider, X-guard) built for sweeping and off-balancing.',
+    subs:['Triangle choke','Omoplata','Armbar']},
+
+  {id:'halfguard', name:'Half Guard', sub:'bottom', adv:'bottom', x:910, y:230, w:165, h:56,
+    desc:'One of the opponent\u2019s legs trapped between yours. A transitional position — can be a launchpad for sweeps or a stop-gap while recovering full guard.',
+    subs:['Kimura','Guillotine','D\u2019Arce']},
+
+  {id:'fiftyfifty', name:'50/50 Guard', sub:'neutral / legs', adv:'neutral', x:1160, y:340, w:165, h:56,
+    desc:'Both players\u2019 legs interlocked around a single leg each — a leg-entanglement stalemate. Whoever wins the grip fight for the foot usually wins the exchange.',
+    subs:['Straight ankle lock','Heel hook','Kneebar']},
+
+  {id:'turtle', name:'Turtle', sub:'bottom / neutral', adv:'neutral', x:1160, y:460, w:150, h:56,
+    desc:'Rolled onto knees and elbows, defending. Rarely a destination on purpose — usually a stop on the way somewhere safer, or the way in to the back.',
+    subs:['Clock choke (gi)','Guillotine (off sprawl)']},
+
+  {id:'sidecontrol', name:'Side Control', sub:'top', adv:'top', x:190, y:460, w:165, h:56,
+    desc:'Perpendicular control, chest to ribs. The classic dominant pin — the top player has weight, the bottom player is working purely to survive and recover guard.',
+    subs:['Americana','Kimura','Armbar','Head-arm choke']},
+
+  {id:'northsouth', name:'North-South', sub:'top', adv:'top', x:430, y:460, w:165, h:56,
+    desc:'Facing the opposite direction across the body. Heavy and disorienting — a favorite spot to lock in a choke or shift toward the far side.',
+    subs:['North-South choke','Kimura']},
+
+  {id:'kneebelly', name:'Knee on Belly', sub:'top', adv:'top', x:670, y:460, w:165, h:56,
+    desc:'Mobile pin with one knee driven into the midsection. Uncomfortable by design — meant to provoke a reaction the top player can capitalize on.',
+    subs:['Armbar','Guillotine']},
+
+  {id:'mount', name:'Mount', sub:'top', adv:'top', x:280, y:660, w:165, h:56,
+    desc:'Seated on the torso, the most dominant position in the sport. Full weight, both hands free to attack — the bottom player\u2019s only job is to survive back to guard.',
+    subs:['Armbar','Cross collar choke','Ezekiel choke','Americana']},
+
+  {id:'backcontrol', name:'Back Control', sub:'top', adv:'top', x:560, y:660, w:165, h:56,
+    desc:'Hooks or body triangle in, both arms free, opponent facing away. The highest-value position in the game — nearly every path on this map leads here eventually.',
+    subs:['Rear naked choke','Bow and arrow choke (gi)','Armbar']},
+
+  {id:'crucifix', name:'Crucifix', sub:'top', adv:'top', x:840, y:660, w:165, h:56,
+    desc:'Both of the opponent\u2019s arms trapped and one leg controlled from behind — they can\u2019t defend and can\u2019t move. A back-attack variant reached mainly off a turtling opponent.',
+    subs:['Armbar','Rear naked choke (one arm free)']},
+];
+
+const EDGES = [
+  {from:'standing', to:'closedguard', type:'transition', label:'Guard pull'},
+  {from:'standing', to:'openguard', type:'transition', label:'Guard pull'},
+  {from:'standing', to:'butterflyguard', type:'transition', label:'Sit to butterfly'},
+  {from:'standing', to:'sidecontrol', type:'transition', label:'Takedown'},
+  {from:'standing', to:'mount', type:'transition', label:'Takedown to mount'},
+
+  {from:'closedguard', to:'standing', type:'escape', label:'Stand up'},
+  {from:'closedguard', to:'mount', type:'sweep', label:'Scissor / hip-bump sweep'},
+  {from:'closedguard', to:'halfguard', type:'pass', label:'Guard pass (partial)'},
+  {from:'closedguard', to:'sidecontrol', type:'pass', label:'Guard pass'},
+
+  {from:'butterflyguard', to:'standing', type:'escape', label:'Stand up'},
+  {from:'butterflyguard', to:'mount', type:'sweep', label:'Butterfly sweep'},
+  {from:'butterflyguard', to:'backcontrol', type:'sweep', label:'Hook sweep to back'},
+  {from:'butterflyguard', to:'openguard', type:'transition', label:'Guard retention shift'},
+
+  {from:'openguard', to:'standing', type:'escape', label:'Technical stand-up'},
+  {from:'openguard', to:'mount', type:'sweep', label:'Flower / X-guard sweep'},
+  {from:'openguard', to:'sidecontrol', type:'pass', label:'Toreando / knee-cut pass'},
+  {from:'openguard', to:'backcontrol', type:'sweep', label:'Berimbolo'},
+
+  {from:'halfguard', to:'mount', type:'sweep', label:'Old-school sweep'},
+  {from:'halfguard', to:'backcontrol', type:'sweep', label:'Waiter sweep'},
+  {from:'halfguard', to:'sidecontrol', type:'pass', label:'Half guard pass'},
+  {from:'halfguard', to:'closedguard', type:'transition', label:'Recover full guard'},
+  {from:'halfguard', to:'fiftyfifty', type:'transition', label:'Leg entanglement'},
+
+  {from:'fiftyfifty', to:'standing', type:'escape', label:'Leg escape to feet'},
+  {from:'fiftyfifty', to:'halfguard', type:'transition', label:'Return to half guard'},
+
+  {from:'sidecontrol', to:'mount', type:'pass', label:'Mount from side'},
+  {from:'sidecontrol', to:'kneebelly', type:'transition', label:'Step to knee on belly'},
+  {from:'sidecontrol', to:'northsouth', type:'transition', label:'Switch to north-south'},
+  {from:'sidecontrol', to:'closedguard', type:'escape', label:'Recover guard'},
+  {from:'sidecontrol', to:'turtle', type:'escape', label:'Turtle / roll away'},
+
+  {from:'kneebelly', to:'mount', type:'pass', label:'Advance to mount'},
+  {from:'kneebelly', to:'sidecontrol', type:'transition', label:'Return to side control'},
+
+  {from:'northsouth', to:'sidecontrol', type:'transition', label:'Return to side control'},
+  {from:'northsouth', to:'mount', type:'pass', label:'Advance to mount'},
+
+  {from:'mount', to:'backcontrol', type:'transition', label:'Take the back'},
+  {from:'mount', to:'sidecontrol', type:'transition', label:'Base lost, fall to side'},
+  {from:'mount', to:'halfguard', type:'escape', label:'Recompose half guard'},
+  {from:'mount', to:'closedguard', type:'escape', label:'Upa / elbow escape'},
+
+  {from:'backcontrol', to:'mount', type:'transition', label:'Hooks lost, roll to mount'},
+  {from:'backcontrol', to:'standing', type:'escape', label:'Stand-and-turn escape'},
+
+  {from:'turtle', to:'backcontrol', type:'transition', label:'Back taken'},
+  {from:'turtle', to:'crucifix', type:'transition', label:'Crucifix taken'},
+  {from:'turtle', to:'closedguard', type:'escape', label:'Recover guard'},
+  {from:'turtle', to:'standing', type:'escape', label:'Stand up'},
+
+  {from:'crucifix', to:'backcontrol', type:'transition', label:'Shift to hooks / body triangle'},
+];
+
+// Submission chains: what to attack next when the first submission is defended,
+// all without leaving the same position.
+const CHAINS = [
+  {position:'closedguard', note:'Classic guard attack sequence', steps:[
+    {sub:'Armbar', trigger:'Opponent posts up (hitchhiker grip)'},
+    {sub:'Triangle choke', trigger:'Opponent stacks / defends the arm'},
+    {sub:'Omoplata', trigger:'Opponent postures out of the triangle'},
+  ]},
+  {position:'mount', note:'High-mount attack sequence', steps:[
+    {sub:'Cross collar choke', trigger:'Opponent defends by turning away'},
+    {sub:'Armbar', trigger:'Opponent frames and pushes the hips'},
+    {sub:'Americana', trigger:'Opponent pulls the arm back to defend armbar'},
+  ]},
+  {position:'backcontrol', note:'Back-attack sequence', steps:[
+    {sub:'Rear naked choke', trigger:'Opponent hand-fights the choking arm'},
+    {sub:'Bow and arrow choke (gi)', trigger:'Opponent controls the choking wrist'},
+    {sub:'Armbar', trigger:'Opponent turns into you defending the choke'},
+  ]},
+  {position:'sidecontrol', note:'Top-pressure attack sequence', steps:[
+    {sub:'Kimura', trigger:'Opponent frames the near-side arm'},
+    {sub:'Americana', trigger:'Opponent rotates the arm the other way to escape'},
+    {sub:'Armbar', trigger:'Opponent straightens the arm to push you off'},
+  ]},
+  {position:'fiftyfifty', note:'Leg-lock sequence', steps:[
+    {sub:'Straight ankle lock', trigger:'Opponent points the toes to defend'},
+    {sub:'Heel hook', trigger:'Opponent rotates the leg out'},
+    {sub:'Kneebar', trigger:'Opponent pulls the foot away'},
+  ]},
+];
+
+// Basic mechanics for each submission, position-independent.
+const SUB_STEPS = {
+  'Armbar': [
+    'Isolate one arm and control the wrist with both hands.',
+    'Swing a leg over the head so the opponent\u2019s arm is trapped between your thighs.',
+    'Squeeze your knees together and pinch the elbow to your chest.',
+    'Lift your hips while pulling the wrist down to hyperextend the elbow.'
+  ],
+  'Triangle choke': [
+    'Get one of the opponent\u2019s arms across your body while the other is outside your leg.',
+    'Cut a 90-degree angle to that side and swing your top leg over the neck.',
+    'Lock your foot behind your own opposite knee, forming a triangle around neck and arm.',
+    'Pull the head down and squeeze your knees together to finish the choke.'
+  ],
+  'Kimura': [
+    'Trap one of the opponent\u2019s arms and control the wrist with both hands.',
+    'Reach your far arm under and over their forearm, gripping your own wrist (figure-four grip).',
+    'Keep the elbow pinned tight to their body.',
+    'Rotate the wrist up and behind their back to lock the shoulder.'
+  ],
+  'Guillotine': [
+    'Wrap one arm around the opponent\u2019s neck as they duck their head or shoot in.',
+    'Lace your hands together under the chin (gi or arm-in variations change the grip).',
+    'Close your guard or drop your hips to prevent them from stepping around.',
+    'Pull the elbows in and lift the chest to choke, not just squeeze the arms.'
+  ],
+  'D\u2019Arce': [
+    'From a front headlock, thread one arm under their armpit and around the neck.',
+    'Clasp your hands together, trapping the far arm and neck together.',
+    'Roll to your back or sprawl your hips away to tighten the choke.',
+    'Squeeze the arms together while extending the hips to finish.'
+  ],
+  'Anaconda': [
+    'From a front headlock, wrap one arm under the neck and the other under the near armpit.',
+    'Clasp your hands together in a tight gable grip around the neck and arm.',
+    'Roll forward over your shoulder, ending up on top of the opponent.',
+    'Squeeze the arms together as you roll through to finish the choke.'
+  ],
+  'Omoplata': [
+    'Control one arm and swing your same-side leg over their shoulder from a guard position.',
+    'Sit up and rotate so your leg pins the arm against their back like a shoulder lock.',
+    'Control the hips or belt so they can\u2019t roll out.',
+    'Walk your hands toward their hip and lean forward to crank the shoulder.'
+  ],
+  'Straight ankle lock': [
+    'Control the foot and trap the leg between your legs or under an arm.',
+    'Position your hip or forearm behind the Achilles tendon.',
+    'Squeeze your legs together and arch back slightly.',
+    'Extend your hips while pulling the foot in toward your chest.'
+  ],
+  'Heel hook': [
+    'Control the leg and trap the foot, heel pointing toward you, in your armpit.',
+    'Wrap your near arm around the heel and your far arm over the shin.',
+    'Keep the knee immobilized against your hip so it can\u2019t rotate freely.',
+    'Rotate the heel like turning a key to torque the knee.'
+  ],
+  'Kneebar': [
+    'Control the leg and get both of your legs across their hip, hugging the one leg.',
+    'Pull the leg tight against your chest with the knee joint over your hips.',
+    'Keep their knee straight, not bent, and their foot controlled at your shoulder.',
+    'Extend your hips upward to hyperextend the knee.'
+  ],
+  'Clock choke (gi)': [
+    'From the opponent\u2019s turtle, grab the far collar deep with one hand.',
+    'Step or circle around to their back side while keeping the grip tight.',
+    'Drive your weight down onto their upper back to flatten them out.',
+    'Walk in a circle (like clock hands) while pulling the collar to choke.'
+  ],
+  'Americana': [
+    'Pin the opponent\u2019s wrist to the mat above their shoulder, arm bent at 90 degrees.',
+    'Thread your other hand under their elbow and grab your own wrist.',
+    'Keep their elbow on the mat as a fixed pivot point.',
+    'Trace the arm in an \u201cS\u201d shape along the mat toward their hip to lock the shoulder.'
+  ],
+  'Head-arm choke': [
+    'From side control, trap one of their arms across their own neck.',
+    'Wrap your near arm around their head and the trapped arm together.',
+    'Clasp your hands or grip your own biceps to close the choke.',
+    'Drive your shoulder down and squeeze to finish.'
+  ],
+  'North-South choke': [
+    'From north-south position, slide one arm under their near-side arm and around the neck.',
+    'Clasp your hands together behind their neck or lace a gable grip.',
+    'Walk your hips up toward their head for a tighter angle.',
+    'Squeeze your arms and drive your chest down to finish the choke.'
+  ],
+  'Cross collar choke': [
+    'From mount or guard, grip deep into the far collar with one hand, palm up.',
+    'Grip the near collar the same way with the other hand, palm down, crossing your wrists.',
+    'Bring your elbows in tight to your body rather than pulling out wide.',
+    'Squeeze your hands toward each other and expand your chest to finish.'
+  ],
+  'Ezekiel choke': [
+    'From mount, slide one hand into your own opposite sleeve, forearm across their neck.',
+    'Use the other hand to grip your own fist or wrist for support.',
+    'Keep your posture heavy so they can\u2019t create space.',
+    'Squeeze your forearm across the neck by closing the gap between your hands.'
+  ],
+  'Rear naked choke': [
+    'From back control, slide one arm under the chin across the throat.',
+    'Clasp that hand into the crook of your other elbow (or grip your bicep).',
+    'Place your free hand behind their head, fingers pointing forward.',
+    'Squeeze your elbows together and expand your chest to finish.'
+  ],
+  'Rear naked choke (one arm free)': [
+    'From crucifix, one of their arms is already trapped and unable to defend.',
+    'Slide your free arm under the chin across the throat.',
+    'Clasp your hands together or grip your own bicep to lock the choke.',
+    'Squeeze your elbows in and expand your chest to finish.'
+  ],
+  'Bow and arrow choke (gi)': [
+    'From back control, grab the far collar deep with one hand.',
+    'Switch your hips to the side and grab their same-side leg or pant with the other hand.',
+    'Pull the leg like drawing a bowstring while extending your body.',
+    'Pull the collar across and arch back to finish the choke.'
+  ],
+};
+
+// Basic mechanics for each sweep, keyed by the edge label used in EDGES.
+const SWEEP_STEPS = {
+  'Scissor / hip-bump sweep': [
+    'From closed guard, open your legs and post one shin across the opponent\u2019s belly while gripping their same-side sleeve and opposite collar.',
+    'Hip escape onto your side so your bottom leg is free and your top shin stays braced across their midsection.',
+    'Scissor the legs: the bottom leg kicks their base leg out from under them while the top shin pushes their upper body up and back.',
+    'Finish the pull with your grips as they fall, following them over into mount.'
+  ],
+  'Butterfly sweep': [
+    'From butterfly guard, sit chest to chest and get a deep hook under one of their thighs.',
+    'Control one arm at the wrist and hook or hug behind their same-side tricep or back with the other.',
+    'Load their weight onto the hooking leg by pulling with your upper body toward that side.',
+    'Elevate hard with the hook, lifting their base leg off the mat, and follow their fall over the top into mount.'
+  ],
+  'Hook sweep to back': [
+    'From butterfly guard, establish the same deep hook as the butterfly sweep, but underhook the far arm instead of just gripping the sleeve.',
+    'Off-balance the opponent toward the side away from your hook while keeping that underhook tight so they can\u2019t post or square back up.',
+    'As they fall, don\u2019t finish flat on top — ride the rotation instead of stopping in mount.',
+    'Continue rolling through the momentum until you land behind them with hooks in for back control.'
+  ],
+  'Flower / X-guard sweep': [
+    'From open guard, control one sleeve and hook your same-side foot behind their same-side knee (basic pendulum / flower sweep setup).',
+    'Swing your hips and free leg back and then forward like a pendulum, pulling the sleeve to break their post on that side.',
+    'As their base leg is swept out, drive the swinging leg through to elevate and roll them onto their back.',
+    'Follow through with the sleeve grip to come up in mount. (X-guard entries — underneath, controlling one leg and hooking behind the far knee — use the same elevate-and-follow-through idea from a lower angle.)'
+  ],
+  'Berimbolo': [
+    'From De La Riva hook, off-balance the opponent forward and down using the hook and your grips so they post their hands to the mat.',
+    'As they base out, sit through underneath them and roll backward, staying inverted rather than fighting to stay upright.',
+    'Use your hip position to travel under and around their base leg while they\u2019re occupied defending the sweep/roll.',
+    'Continue the rotation to come up on the far side of their hips and take the back with hooks in.'
+  ],
+  'Old-school sweep': [
+    'From half guard bottom, underhook the far arm and grip their near-side wrist or sleeve with your other hand.',
+    'Drive your head and shoulder into their chest, off-balancing them backward and flattening their posture.',
+    'Use the hook from your trapped leg to lift and turn their base (bottom) leg out from under them.',
+    'Roll through the opening created, following your underhook and head pressure up into mount.'
+  ],
+  'Waiter sweep': [
+    'From half guard bottom, get a deep underhook on the far side and reach that same hand behind their back or belt, like carrying a tray.',
+    'Use your outside-leg hook to lift their base leg, the way a waiter\u2019s hand lifts a tray.',
+    'Drive up through the underhook and hook together, rolling them forward over your shoulder.',
+    'Follow their rotation all the way around to their back, inserting hooks or a body triangle as you arrive.'
+  ],
+};
+
+const byId = Object.fromEntries(POSITIONS.map(p=>[p.id,p]));
+// A trailing "(gi)" is part of a technique's identity (gi-only), so it is kept.
+// Any other trailing parenthetical is a contextual variant of the base technique.
+function canonicalSubName(name){
+  if(/\(gi\)\s*$/i.test(name)) return name.trim();
+  return name.replace(/\s*\([^)]*\)\s*$/, '').trim();
+}
+function getSteps(name){
+  return SUB_STEPS[name] || SUB_STEPS[canonicalSubName(name)] || null;
+}
+let activeFilter = 'all';
+let selected = null;
+
+const svg = document.getElementById('svg');
+const NS = 'http://www.w3.org/2000/svg';
+
+function curvePath(a,b){
+  const x1=a.x, y1=a.y+a.h/2, x2=b.x, y2=b.y-b.h/2;
+  // choose control based on relative position for pleasant curvature
+  const dx = x2-x1, dy=y2-y1;
+  const mx = (x1+x2)/2, my=(y1+y2)/2;
+  const curveOffset = dx*0.18;
+  return `M ${x1} ${y1} Q ${mx+curveOffset} ${my} ${x2} ${y2}`;
+}
+
+function edgeAnchor(a,b){
+  // connect edges of node boxes toward each other's center, generic straight-ish quad curve
+  const ax=a.x, ay=a.y, bx=b.x, by=b.y;
+  const dx=bx-ax, dy=by-ay;
+  const dist = Math.sqrt(dx*dx+dy*dy) || 1;
+  const ux=dx/dist, uy=dy/dist;
+  const sx = ax + ux*(a.w/2+2), sy = ay + uy*(a.h/2+2);
+  const ex = bx - ux*(b.w/2+2), ey = by - uy*(b.h/2+2);
+  const mx=(sx+ex)/2, my=(sy+ey)/2;
+  const perpX = -uy, perpY = ux;
+  const bend = 22;
+  const cx = mx + perpX*bend, cy = my + perpY*bend;
+  return {sx,sy,ex,ey,cx,cy};
+}
+
+function buildSVG(){
+  svg.innerHTML = '';
+
+  // defs: arrowheads per type
+  const defs = document.createElementNS(NS,'defs');
+  Object.entries(TYPE_COLOR).forEach(([type,color])=>{
+    const marker = document.createElementNS(NS,'marker');
+    marker.setAttribute('id', `arrow-${type}`);
+    marker.setAttribute('viewBox','0 0 10 10');
+    marker.setAttribute('refX','8'); marker.setAttribute('refY','5');
+    marker.setAttribute('markerWidth','7'); marker.setAttribute('markerHeight','7');
+    marker.setAttribute('orient','auto-start-reverse');
+    const path = document.createElementNS(NS,'path');
+    path.setAttribute('d','M 0 0 L 10 5 L 0 10 z');
+    path.setAttribute('fill', color);
+    marker.appendChild(path);
+    defs.appendChild(marker);
+  });
+  svg.appendChild(defs);
+
+  const edgeLayer = document.createElementNS(NS,'g'); edgeLayer.id='edgeLayer';
+  const tickLayer = document.createElementNS(NS,'g'); tickLayer.id='tickLayer';
+  const nodeLayer = document.createElementNS(NS,'g'); nodeLayer.id='nodeLayer';
+  svg.appendChild(edgeLayer); svg.appendChild(tickLayer); svg.appendChild(nodeLayer);
+
+  EDGES.forEach((e,i)=>{
+    const a = byId[e.from], b = byId[e.to];
+    const {sx,sy,ex,ey,cx,cy} = edgeAnchor(a,b);
+    const d = `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`;
+    const path = document.createElementNS(NS,'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class','edge');
+    path.setAttribute('stroke', TYPE_COLOR[e.type]);
+    path.setAttribute('marker-end', `url(#arrow-${e.type})`);
+    path.dataset.type = e.type;
+    path.dataset.from = e.from;
+    path.dataset.to = e.to;
+    path.dataset.index = i;
+
+    // belt-stripe ticks along the curve (signature detail)
+    const tickCount = 3;
+    for(let t=1;t<=tickCount;t++){
+      const frac = t/(tickCount+1);
+      const tx = (1-frac)*(1-frac)*sx + 2*(1-frac)*frac*cx + frac*frac*ex;
+      const ty = (1-frac)*(1-frac)*sy + 2*(1-frac)*frac*cy + frac*frac*ey;
+      const dxt = 2*(1-frac)*(cx-sx) + 2*frac*(ex-cx);
+      const dyt = 2*(1-frac)*(cy-sy) + 2*frac*(ey-cy);
+      const len = Math.sqrt(dxt*dxt+dyt*dyt) || 1;
+      const nx = -dyt/len, ny = dxt/len;
+      const tick = document.createElementNS(NS,'line');
+      tick.setAttribute('x1', tx-nx*4); tick.setAttribute('y1', ty-ny*4);
+      tick.setAttribute('x2', tx+nx*4); tick.setAttribute('y2', ty+ny*4);
+      tick.setAttribute('class','edge-tick');
+      tick.setAttribute('stroke', TYPE_COLOR[e.type]);
+      tick.dataset.type = e.type;
+      tick.dataset.index = i;
+      tickLayer.appendChild(tick);
+    }
+
+    path.addEventListener('click', ()=>{
+      showEdgeTooltip(e);
+    });
+    edgeLayer.appendChild(path);
+  });
+
+  POSITIONS.forEach(p=>{
+    const g = document.createElementNS(NS,'g');
+    g.setAttribute('class','node-group');
+    g.dataset.id = p.id;
+    const rect = document.createElementNS(NS,'rect');
+    rect.setAttribute('x', p.x - p.w/2);
+    rect.setAttribute('y', p.y - p.h/2);
+    rect.setAttribute('width', p.w);
+    rect.setAttribute('height', p.h);
+    rect.setAttribute('rx', 4);
+    rect.setAttribute('class','node-rect');
+    rect.setAttribute('stroke', ADV_COLOR_HEX[p.adv]);
+    g.appendChild(rect);
+
+    const label = document.createElementNS(NS,'text');
+    label.setAttribute('x', p.x); label.setAttribute('y', p.y - 2);
+    label.setAttribute('text-anchor','middle');
+    label.setAttribute('class','node-label');
+    label.textContent = p.name;
+    g.appendChild(label);
+
+    const sub = document.createElementNS(NS,'text');
+    sub.setAttribute('x', p.x); sub.setAttribute('y', p.y + 16);
+    sub.setAttribute('text-anchor','middle');
+    sub.setAttribute('class','node-sub');
+    sub.textContent = p.sub;
+    g.appendChild(sub);
+
+    g.addEventListener('click', ()=> selectNode(p.id));
+    nodeLayer.appendChild(g);
+  });
+
+  applyFilter();
+}
+
+function connectionsFor(id){
+  const out = EDGES.filter(e=>e.from===id);
+  const inn = EDGES.filter(e=>e.to===id);
+  return {out, inn};
+}
+
+function selectNode(id){
+  selected = id;
+  document.querySelectorAll('.node-group').forEach(g=>{
+    g.classList.toggle('selected', g.dataset.id===id);
+  });
+  renderPanel(id);
+  const panel = document.getElementById('panel');
+  panel.classList.remove('empty');
+  panel.classList.add('open');
+}
+
+function renderPanel(id){
+  const p = byId[id];
+  const {out, inn} = connectionsFor(id);
+  const panel = document.getElementById('panel');
+
+  const advLabel = p.adv==='top' ? 'Top control' : p.adv==='bottom' ? 'Bottom / disadvantage' : 'Neutral';
+
+  let outHtml = out.map((e,idx)=>{
+    const target = byId[e.to];
+    const steps = e.type==='sweep' ? SWEEP_STEPS[e.label] : null;
+    if(!steps){
+      return `<div class="conn-item" data-target="${e.to}">
+        <span class="conn-tick" style="background:${TYPE_COLOR[e.type]}"></span>
+        <span class="conn-text"><b>${TYPE_NOUN[e.type]} → ${target.name}</b><span>${e.label}</span></span>
+      </div>`;
+    }
+    // Sweeps with basics: same tap-to-navigate row, plus a chevron that expands step detail in place.
+    return `<div class="sub-item">
+      <div class="conn-item" data-target="${e.to}" style="justify-content:space-between;">
+        <span style="display:flex;align-items:center;gap:8px;">
+          <span class="conn-tick" style="background:${TYPE_COLOR[e.type]}"></span>
+          <span class="conn-text"><b>${TYPE_NOUN[e.type]} → ${target.name}</b><span>${e.label}</span></span>
+        </span>
+        <button class="sub-toggle-chevron" data-sweep-toggle="${idx}" style="background:none;border:none;cursor:pointer;padding:4px;">▸</button>
+      </div>
+      <div class="sub-steps-wrap" data-sweep-wrap="${idx}">
+        <ol class="sub-steps">${steps.map(st=>`<li>${st}</li>`).join('')}</ol>
+      </div>
+    </div>`;
+  }).join('');
+
+  let innHtml = inn.map(e=>{
+    const source = byId[e.from];
+    return `<div class="conn-item" data-target="${e.from}">
+      <span class="conn-tick" style="background:${TYPE_COLOR[e.type]}"></span>
+      <span class="conn-text"><b>${source.name} → ${TYPE_NOUN[e.type]}</b><span>${e.label}</span></span>
+    </div>`;
+  }).join('');
+
+  let subsHtml = p.subs.map(s=>{
+    const steps = getSteps(s);
+    const stepsHtml = steps ? `<ol class="sub-steps">${steps.map(st=>`<li>${st}</li>`).join('')}</ol>` : '<div class="sub-steps" style="padding:2px 16px 12px 28px;color:var(--ink-dim);">Steps coming soon.</div>';
+    return `<div class="sub-item">
+      <button class="sub-toggle" data-sub="${s}">
+        <span class="sub-toggle-chevron">▸</span> ${s}
+      </button>
+      <div class="sub-steps-wrap">${stepsHtml}</div>
+    </div>`;
+  }).join('');
+
+  const chain = CHAINS.find(c=>c.position===id);
+  let chainHtml = '';
+  if(chain){
+    chainHtml = `
+    <div class="panel-section">
+      <div class="section-label">Submission chain</div>
+      <div style="font-size:10.5px;color:var(--ink-dim);margin-bottom:10px;">${chain.note}</div>
+      <div class="conn-list">
+        ${chain.steps.map((s,i)=>`
+          <div class="conn-item" style="cursor:default;">
+            <span class="conn-tick" style="background:var(--sub);"></span>
+            <span class="conn-text"><b>${i+1}. ${s.sub}</b><span>${i===0 ? 'Opening attack' : s.trigger}</span></span>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  }
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <button class="panel-close" id="panelClose" aria-label="Close">&times;</button>
+      <span class="panel-adv" style="background:${ADV_COLOR_HEX[p.adv]}">${advLabel}</span>
+      <h2 class="panel-title">${p.name}</h2>
+      <div class="panel-desc">${p.desc}</div>
+    </div>
+    <div class="panel-section">
+      <div class="section-label">Submissions from here — tap for basics</div>
+      <div class="sub-list">${subsHtml}</div>
+    </div>
+    ${chainHtml}
+    <div class="panel-section">
+      <div class="section-label">Ways out (passes, sweeps, escapes)</div>
+      <div class="conn-list">${outHtml || '<span style="color:var(--ink-dim);font-size:11px;">None mapped</span>'}</div>
+    </div>
+    <div class="panel-section">
+      <div class="section-label">Ways in</div>
+      <div class="conn-list">${innHtml || '<span style="color:var(--ink-dim);font-size:11px;">None mapped</span>'}</div>
+    </div>
+  `;
+
+  document.getElementById('panelClose').addEventListener('click', closePanel);
+
+  panel.querySelectorAll('.conn-item[data-target]').forEach(el=>{
+    el.addEventListener('click', ()=> selectNode(el.dataset.target));
+  });
+
+  panel.querySelectorAll('.sub-toggle').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const wrap = btn.nextElementSibling;
+      const isOpen = wrap.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+    });
+  });
+
+  panel.querySelectorAll('[data-sweep-toggle]').forEach(btn=>{
+    btn.addEventListener('click', (ev)=>{
+      ev.stopPropagation();
+      const idx = btn.dataset.sweepToggle;
+      const wrap = panel.querySelector(`[data-sweep-wrap="${idx}"]`);
+      const isOpen = wrap.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+    });
+  });
+}
+
+// Mobile bottom sheet dismissal. On desktop the panel is a fixed sidebar, so this only applies on narrow screens.
+const MOBILE_MQ = window.matchMedia('(max-width: 760px)');
+function closePanel(){
+  document.getElementById('panel').classList.remove('open');
+  selected = null;
+  document.querySelectorAll('.node-group').forEach(g=>g.classList.remove('selected'));
+}
+document.getElementById('canvasWrap').addEventListener('click', (ev)=>{
+  if(!MOBILE_MQ.matches) return;
+  if(ev.target.closest('.node-group') || ev.target.closest('.edge')) return;
+  closePanel();
+});
+document.addEventListener('keydown', (ev)=>{
+  if(ev.key==='Escape' && MOBILE_MQ.matches) closePanel();
+});
+
+function showEdgeTooltip(e){
+  selectNode(e.from);
+}
+
+function applyFilter(){
+  const edges = document.querySelectorAll('.edge');
+  const ticks = document.querySelectorAll('.edge-tick');
+  edges.forEach(el=>{
+    const match = activeFilter==='all' || el.dataset.type===activeFilter;
+    el.classList.toggle('dimmed', !match);
+  });
+  ticks.forEach(el=>{
+    const match = activeFilter==='all' || el.dataset.type===activeFilter;
+    el.classList.toggle('dimmed', !match);
+  });
+}
+
+document.getElementById('filters').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.filter-btn');
+  if(!btn) return;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  activeFilter = btn.dataset.type;
+  applyFilter();
+});
+
+/* ---------- Glossary ---------- */
+
+function buildSubGlossary(){
+  const map = {};
+  POSITIONS.forEach(p=>{
+    p.subs.forEach(raw=>{
+      const canon = canonicalSubName(raw);
+      if(!map[canon]) map[canon] = { name: canon, positions: [], variants: [] };
+      const entry = map[canon];
+      if(!entry.positions.includes(p.name)) entry.positions.push(p.name);
+      // Variants with their own step data get shown separately under the base technique.
+      if(raw !== canon && SUB_STEPS[raw]){
+        let v = entry.variants.find(x=>x.name===raw);
+        if(!v){ v = { name: raw, positions: [] }; entry.variants.push(v); }
+        if(!v.positions.includes(p.name)) v.positions.push(p.name);
+      }
+    });
+  });
+  return Object.values(map).sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+// Shared detail body for a submission (Glossary and My Game): base steps, then any variants.
+function subDetailHtml(entry, positionsLabel){
+  const steps = getSteps(entry.name);
+  const stepsHtml = steps
+    ? `<ol>${steps.map(s=>`<li>${s}</li>`).join('')}</ol>`
+    : `<div>Steps coming soon.</div>`;
+  const variantsHtml = (entry.variants||[]).map(v=>`
+    <div class="gloss-variant">
+      <div class="gloss-route">Variant: ${v.name} <span class="gloss-variant-pos">(${v.positions.join(', ')})</span></div>
+      <ol>${SUB_STEPS[v.name].map(s=>`<li>${s}</li>`).join('')}</ol>
+    </div>`).join('');
+  return `${stepsHtml}${variantsHtml}<div class="gloss-positions">${positionsLabel}: <b>${entry.positions.join(', ')}</b></div>`;
+}
+
+function buildEdgeGlossary(type){
+  const map = {};
+  EDGES.filter(e=>e.type===type).forEach(e=>{
+    if(!map[e.label]) map[e.label] = { name: e.label, type, routes: [] };
+    map[e.label].routes.push({from: byId[e.from].name, to: byId[e.to].name});
+  });
+  return Object.values(map).sort((a,b)=>a.name.localeCompare(b.name));
+}
+
+const SUB_GLOSSARY = buildSubGlossary();
+const EDGE_GLOSSARY = {
+  pass: buildEdgeGlossary('pass'),
+  sweep: buildEdgeGlossary('sweep'),
+  escape: buildEdgeGlossary('escape'),
+  transition: buildEdgeGlossary('transition'),
+};
+
+const GLOSSARY_SECTIONS = [
+  {key:'submission', title:'Submissions', color:'var(--sub)'},
+  {key:'pass', title:'Passes', color:'var(--pass)'},
+  {key:'sweep', title:'Sweeps', color:'var(--sweep)'},
+  {key:'escape', title:'Escapes', color:'var(--escape)'},
+  {key:'transition', title:'Transitions', color:'var(--transition)'},
+];
+
+function matchesQuery(entry, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  if(entry.name.toLowerCase().includes(q)) return true;
+  if(entry.positions && entry.positions.some(p=>p.toLowerCase().includes(q))) return true;
+  if(entry.routes && entry.routes.some(r=>r.from.toLowerCase().includes(q) || r.to.toLowerCase().includes(q))) return true;
+  return false;
+}
+
+function renderSubEntry(entry){
+  return `<div class="gloss-item">
+    <button class="gloss-toggle" data-kind="sub">
+      <span class="chev">▸</span>
+      <span class="gloss-name">${entry.name}</span>
+      <span class="gloss-tag" style="background:var(--sub);">submission</span>
+    </button>
+    <div class="gloss-steps-wrap">
+      <div class="gloss-detail">${subDetailHtml(entry, 'Available from')}</div>
+    </div>
+  </div>`;
+}
+
+function renderEdgeEntry(entry){
+  const color = TYPE_COLOR[entry.type];
+  const routesHtml = entry.routes.map(r=>`<div class="gloss-route">${r.from} → ${r.to}</div>`).join('');
+  const steps = entry.type==='sweep' ? SWEEP_STEPS[entry.name] : null;
+  const stepsHtml = steps ? `<ol>${steps.map(s=>`<li>${s}</li>`).join('')}</ol>` : '';
+  return `<div class="gloss-item">
+    <button class="gloss-toggle" data-kind="edge">
+      <span class="chev">▸</span>
+      <span class="gloss-name">${entry.name}</span>
+      <span class="gloss-tag" style="background:${color};">${TYPE_NOUN[entry.type]}</span>
+    </button>
+    <div class="gloss-steps-wrap">
+      <div class="gloss-detail">${stepsHtml}${routesHtml}</div>
+    </div>
+  </div>`;
+}
+
+function renderGlossary(query){
+  const body = document.getElementById('glossaryBody');
+  let anyResults = false;
+  let html = '';
+
+  GLOSSARY_SECTIONS.forEach(section=>{
+    let entries, itemsHtml;
+    if(section.key==='submission'){
+      entries = SUB_GLOSSARY.filter(e=>matchesQuery(e, query));
+      itemsHtml = entries.map(renderSubEntry).join('');
+    } else {
+      entries = EDGE_GLOSSARY[section.key].filter(e=>matchesQuery(e, query));
+      itemsHtml = entries.map(renderEdgeEntry).join('');
+    }
+    if(entries.length === 0) return;
+    anyResults = true;
+    html += `<div class="glossary-section">
+      <div class="glossary-section-title" style="color:${section.color}">
+        ${section.title} <span class="glossary-section-count">(${entries.length})</span>
+      </div>
+      ${itemsHtml}
+    </div>`;
+  });
+
+  body.innerHTML = anyResults ? html : `<div class="glossary-empty">No matches for “${query}”.</div>`;
+}
+
+document.getElementById('glossaryBody').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.gloss-toggle');
+  if(!btn) return;
+  const wrap = btn.nextElementSibling;
+  const isOpen = wrap.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+});
+
+document.getElementById('glossarySearch').addEventListener('input', (ev)=>{
+  renderGlossary(ev.target.value.trim());
+});
+
+/* ---------- My Game ---------- */
+
+const LEVELS = [
+  {key:'unknown', label:'Don\u2019t know', color:'var(--lvl0)', text:'var(--ink)'},
+  {key:'learning', label:'Learning', color:'var(--lvl1)', text:'var(--bg)'},
+  {key:'confident', label:'Confident', color:'var(--lvl2)', text:'var(--ink)'},
+  {key:'mastered', label:'Mastered', color:'var(--lvl3)', text:'var(--bg)'},
+];
+
+// Unified skill list, built from the same data the Glossary uses — no duplication.
+function buildAllSkills(){
+  const list = [];
+  SUB_GLOSSARY.forEach(e=>{
+    list.push({ key:`submission|${e.name}`, type:'submission', name:e.name, positions:e.positions.slice(), variants:e.variants });
+  });
+  ['pass','sweep','escape','transition'].forEach(type=>{
+    EDGE_GLOSSARY[type].forEach(e=>{
+      const positions = [];
+      e.routes.forEach(r=>{
+        if(!positions.includes(r.from)) positions.push(r.from);
+        if(!positions.includes(r.to)) positions.push(r.to);
+      });
+      list.push({ key:`${type}|${e.name}`, type, name:e.name, positions });
+    });
+  });
+  return list;
+}
+const ALL_SKILLS = buildAllSkills();
+const SKILL_TYPE_COLOR = { submission:'var(--sub)', pass:TYPE_COLOR.pass, sweep:TYPE_COLOR.sweep, escape:TYPE_COLOR.escape, transition:TYPE_COLOR.transition };
+const SKILL_TYPE_NOUN = { submission:'Submission', pass:'Pass', sweep:'Sweep', escape:'Escape', transition:'Transition' };
+
+let RATINGS = {};
+let ratingsReady = false;
+
+async function loadRatings(){
+  try{
+    const res = await window.storage.get('skill-ratings', false);
+    if(res && res.value) RATINGS = JSON.parse(res.value) || {};
+  }catch(err){
+    RATINGS = {};
+  }
+  migrateRatingKeys();
+  ratingsReady = true;
+}
+
+// Gi-only submissions used to be keyed without their "(gi)" suffix. Carry old ratings forward.
+function migrateRatingKeys(){
+  const valid = new Set(ALL_SKILLS.map(s=>s.key));
+  let changed = false;
+  Object.keys(RATINGS).forEach(k=>{
+    if(valid.has(k)) return;
+    const match = ALL_SKILLS.find(s=>s.type==='submission' && `submission|${s.name.replace(/\s*\(gi\)\s*$/i,'')}`===k);
+    if(match){
+      if(RATINGS[match.key]===undefined) RATINGS[match.key] = RATINGS[k];
+      delete RATINGS[k];
+      changed = true;
+    }
+  });
+  if(changed) saveRatings();
+}
+
+async function saveRatings(){
+  try{
+    await window.storage.set('skill-ratings', JSON.stringify(RATINGS), false);
+  }catch(err){
+    console.error('Could not save progress', err);
+  }
+}
+
+function getLevel(key){ return RATINGS[key] ?? 0; }
+function cycleLevel(key){
+  const next = (getLevel(key) + 1) % LEVELS.length;
+  RATINGS[key] = next;
+  saveRatings();
+  return next;
+}
+
+function categoryScore(type){
+  const skills = ALL_SKILLS.filter(s=>s.type===type);
+  if(skills.length===0) return 0;
+  const sum = skills.reduce((acc,s)=>acc+getLevel(s.key),0);
+  return sum / (skills.length * (LEVELS.length-1)); // 0..1
+}
+
+function drawRadar(){
+  const svg = document.getElementById('radarSvg');
+  const cats = GLOSSARY_SECTIONS; // same 5 categories, same colors, as the Glossary
+  const cx=170, cy=175, maxR=118;
+  const n = cats.length;
+  const angleFor = i => -Math.PI/2 + i*(2*Math.PI/n);
+  const pt = (i, r) => [cx + r*Math.cos(angleFor(i)), cy + r*Math.sin(angleFor(i))];
+
+  let svgParts = [];
+
+  // background rings
+  [0.25,0.5,0.75,1].forEach(frac=>{
+    const pts = cats.map((_,i)=>pt(i, maxR*frac).join(',')).join(' ');
+    svgParts.push(`<polygon points="${pts}" fill="none" stroke="#333D44" stroke-width="1"/>`);
+  });
+  // axis lines + labels
+  cats.forEach((c,i)=>{
+    const [x,y] = pt(i, maxR);
+    svgParts.push(`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#333D44" stroke-width="1"/>`);
+    const [lx,ly] = pt(i, maxR+22);
+    svgParts.push(`<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle" font-family="Oswald, sans-serif" font-size="11" font-weight="600" fill="${c.color}" style="text-transform:uppercase;letter-spacing:0.03em;">${c.title}</text>`);
+  });
+  // data polygon
+  const dataPts = cats.map((c,i)=>{
+    const score = categoryScore(c.key);
+    return pt(i, maxR*score);
+  });
+  const dataPolyStr = dataPts.map(p=>p.join(',')).join(' ');
+  svgParts.push(`<polygon points="${dataPolyStr}" fill="rgba(201,162,39,0.22)" stroke="var(--gold)" stroke-width="2"/>`);
+  dataPts.forEach(([x,y])=>{
+    svgParts.push(`<circle cx="${x}" cy="${y}" r="3.5" fill="var(--gold)"/>`);
+  });
+
+  svg.innerHTML = svgParts.join('');
+}
+
+function renderLevelLegend(){
+  const el = document.getElementById('levelLegend');
+  el.innerHTML = LEVELS.map((lvl,i)=>{
+    const count = ALL_SKILLS.filter(s=>getLevel(s.key)===i).length;
+    return `<div class="level-legend-item">
+      <span class="level-legend-dot" style="background:${lvl.color}"></span>
+      ${lvl.label}
+      <span class="level-legend-count">${count}</span>
+    </div>`;
+  }).join('');
+}
+
+function computePracticeNext(limit=6){
+  const bySkillKey = Object.fromEntries(ALL_SKILLS.map(s=>[s.key,s]));
+  const candidates = ALL_SKILLS.filter(s=>getLevel(s.key) <= 1);
+
+  const scored = candidates.map(s=>{
+    let score = 0;
+    let reason = null;
+
+    // Chain adjacency: is this submission the next step after one already confident/mastered?
+    if(s.type==='submission'){
+      for(const chain of CHAINS){
+        const idx = chain.steps.findIndex(st=>canonicalSubName(st.sub)===s.name);
+        if(idx>0){
+          const predName = canonicalSubName(chain.steps[idx-1].sub);
+          const predLevel = getLevel(`submission|${predName}`);
+          if(predLevel>=2){
+            score += 3;
+            reason = `Natural follow-up to ${predName}`;
+          }
+        }
+      }
+    }
+
+    // Position adjacency: shared position with something already confident/mastered
+    const sharedPositions = new Set();
+    s.positions.forEach(pos=>{
+      ALL_SKILLS.forEach(other=>{
+        if(other.key===s.key) return;
+        if(getLevel(other.key)>=2 && other.positions.includes(pos)) sharedPositions.add(pos);
+      });
+    });
+    score += sharedPositions.size;
+    if(!reason && sharedPositions.size>0){
+      reason = `Connects to ${[...sharedPositions][0]}`;
+    }
+    if(!reason) reason = getLevel(s.key)===1 ? 'Already in progress' : 'New skill area';
+
+    return { skill:s, score, status:getLevel(s.key), reason };
+  });
+
+  scored.sort((a,b)=> (b.score-a.score) || (b.status-a.status) || a.skill.name.localeCompare(b.skill.name));
+  return scored.slice(0, limit);
+}
+
+function renderPracticeNext(){
+  const el = document.getElementById('practiceNext');
+  const picks = computePracticeNext(6);
+  const itemsHtml = picks.map(p=>`
+    <div class="practice-item" data-key="${p.skill.key}">
+      <span class="ptag" style="background:${SKILL_TYPE_COLOR[p.skill.type]}">${SKILL_TYPE_NOUN[p.skill.type]}</span>
+      <span class="pname">${p.skill.name}<span class="preason">${p.reason}</span></span>
+    </div>
+  `).join('');
+  el.innerHTML = `
+    <div class="practice-next-title">Practice next</div>
+    <div class="practice-list">${itemsHtml || '<div class="practice-empty">Everything\u2019s rated Confident or Mastered — nice work. Nothing urgent to flag.</div>'}</div>
+  `;
+}
+
+function renderGameSkillEntry(s){
+  const level = getLevel(s.key);
+  const lvl = LEVELS[level];
+  const positionsNote = s.positions.length ? `<div class="gloss-positions">Positions: <b>${s.positions.join(', ')}</b></div>` : '';
+  const steps = s.type==='sweep' ? SWEEP_STEPS[s.name] : null;
+  const detailHtml = s.type==='submission'
+    ? subDetailHtml(s, 'Positions')
+    : steps
+      ? `<ol>${steps.map(st=>`<li>${st}</li>`).join('')}</ol>${positionsNote}`
+      : positionsNote;
+  return `<div class="gloss-item">
+    <div class="gloss-toggle" data-kind="game" tabindex="0">
+      <span class="chev">▸</span>
+      <span class="gloss-name">${s.name}</span>
+      <button class="level-btn" data-key="${s.key}" style="background:${lvl.color};color:${lvl.text}">${lvl.label}</button>
+    </div>
+    <div class="gloss-steps-wrap">
+      <div class="gloss-detail">${detailHtml || 'No further detail.'}</div>
+    </div>
+  </div>`;
+}
+
+function renderGame(query){
+  if(!ratingsReady){
+    document.getElementById('gameBody').innerHTML = '<div class="glossary-empty">Loading your progress…</div>';
+    loadRatings().then(()=> renderGame(query));
+    return;
+  }
+
+  drawRadar();
+  renderLevelLegend();
+  renderPracticeNext();
+
+  const body = document.getElementById('gameBody');
+  let anyResults = false;
+  let html = '';
+  GLOSSARY_SECTIONS.forEach(section=>{
+    const skills = ALL_SKILLS
+      .filter(s=>s.type===section.key)
+      .filter(s=>matchesQuery({name:s.name, positions:s.positions}, query))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+    if(skills.length===0) return;
+    anyResults = true;
+    html += `<div class="glossary-section">
+      <div class="glossary-section-title" style="color:${section.color}">
+        ${section.title} <span class="glossary-section-count">(${skills.length})</span>
+      </div>
+      ${skills.map(renderGameSkillEntry).join('')}
+    </div>`;
+  });
+  body.innerHTML = anyResults ? html : `<div class="glossary-empty">No matches for “${query}”.</div>`;
+}
+
+document.getElementById('gameBody').addEventListener('click', (ev)=>{
+  const levelBtn = ev.target.closest('.level-btn');
+  if(levelBtn){
+    ev.stopPropagation();
+    cycleLevel(levelBtn.dataset.key);
+    renderGame(document.getElementById('gameSearch').value.trim());
+    return;
+  }
+  const toggle = ev.target.closest('.gloss-toggle');
+  if(toggle){
+    const wrap = toggle.nextElementSibling;
+    const isOpen = wrap.classList.toggle('open');
+    toggle.classList.toggle('open', isOpen);
+  }
+});
+
+document.getElementById('practiceNext').addEventListener('click', (ev)=>{
+  const item = ev.target.closest('.practice-item');
+  if(!item) return;
+  cycleLevel(item.dataset.key);
+  renderGame(document.getElementById('gameSearch').value.trim());
+});
+
+document.getElementById('gameSearch').addEventListener('input', (ev)=>{
+  renderGame(ev.target.value.trim());
+});
+
+loadRatings();
+
+
+
+document.getElementById('viewTabs').addEventListener('click', (ev)=>{
+  const btn = ev.target.closest('.view-tab');
+  if(!btn) return;
+  document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const view = btn.dataset.view;
+  document.getElementById('mapView').style.display = view==='map' ? 'flex' : 'none';
+  document.getElementById('glossaryView').style.display = view==='glossary' ? 'flex' : 'none';
+  document.getElementById('gameView').style.display = view==='game' ? 'flex' : 'none';
+  if(view==='glossary'){
+    renderGlossary(document.getElementById('glossarySearch').value.trim());
+  }
+  if(view==='game'){
+    renderGame(document.getElementById('gameSearch').value.trim());
+  }
+});
+
+buildSVG();
+</script>
+</body>
+</html>
