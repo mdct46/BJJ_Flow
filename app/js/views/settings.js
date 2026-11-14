@@ -2,6 +2,7 @@
 // Route: #/settings
 import * as store from '../store.js';
 import { loadRatings } from '../ratings.js';
+import { loadSessions } from '../sessions.js';
 import { APP_VERSION } from '../version.js';
 
 let root = null;
@@ -14,7 +15,7 @@ export function mount(el){
 
       <section class="card">
         <div class="card-head"><h3>Backup</h3></div>
-        <p class="muted">Your data is stored on this device only. Export a backup now and then, and before switching phones or clearing your browser.</p>
+        <p class="muted">Your data is stored on this device only. A backup includes your training log and skill ratings. Export one now and then, and before switching phones or clearing your browser.</p>
         <div class="btn-row">
           <button class="btn" id="exportBtn">Export backup</button>
           <label class="btn secondary">Import backup<input type="file" id="importInput" accept="application/json,.json" hidden></label>
@@ -73,7 +74,7 @@ async function importBackup(ev){
     const backup = JSON.parse(await file.text());
     if(!confirm('Importing replaces everything currently saved on this device. Continue?')) return;
     await store.importAll(backup);
-    await loadRatings();
+    await Promise.all([loadRatings(), loadSessions()]);
     setStatus(`Backup from ${backup.exportedAt ? new Date(backup.exportedAt).toLocaleDateString() : 'file'} restored.`);
   }catch(err){
     setStatus(err instanceof SyntaxError ? 'That file isn’t valid JSON.' : err.message, true);

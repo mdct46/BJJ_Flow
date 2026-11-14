@@ -1,5 +1,6 @@
 // App shell: navigation, hash routing and service worker registration.
 import { loadRatings } from './ratings.js';
+import { loadSessions } from './sessions.js';
 import { ICONS } from './ui.js';
 import * as home from './views/home.js';
 import * as map from './views/map.js';
@@ -20,14 +21,17 @@ const NAV = [
   { href:'#/game',  label:'My Game',    icon:'game',  match:['game'] },
 ];
 
-// "#/map/mount" -> {name:'map', param:'mount', query:{}}; "#/glossary?q=arm" -> {name:'glossary', query:{q:'arm'}}
+// "#/map/mount"       -> {name:'map', param:'mount', sub:null, query:{}}
+// "#/notes/<id>/edit" -> {name:'notes', param:'<id>', sub:'edit'}
+// "#/glossary?q=arm"  -> {name:'glossary', query:{q:'arm'}}
 function parseHash(){
   const raw = location.hash.replace(/^#\/?/, '');
   const [path, qs = ''] = raw.split('?');
-  const [name, param] = path.split('/').map(s=>decodeURIComponent(s || ''));
+  const [name, param, sub] = path.split('/').map(s=>decodeURIComponent(s || ''));
   return {
     name: ROUTES[name] ? name : 'home',
     param: param || null,
+    sub: sub || null,
     query: Object.fromEntries(new URLSearchParams(qs)),
   };
 }
@@ -56,7 +60,7 @@ function render(){
 
 async function start(){
   document.getElementById('settingsLink').innerHTML = ICONS.settings;
-  await loadRatings();
+  await Promise.all([loadRatings(), loadSessions()]);
   if(!location.hash) history.replaceState(null, '', '#/home');
   window.addEventListener('hashchange', render);
   render();

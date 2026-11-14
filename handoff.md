@@ -10,7 +10,7 @@ and content rules, which carried over unchanged.
 ### Roadmap and decisions (Nov 2026)
 
 1. ~~App shell and home screen, PWA, on-device storage~~ **done (v0.1.0)**
-2. Flow Notes v1: log sessions and rolls (partner, subs given/taken and from which position, notes), history list
+2. ~~Flow Notes v1: log sessions and rolls (partner, subs given/taken and from which position, notes), history list~~ **done (v0.2.0)**
 3. Link the log back into the app: per-position stats on the map, My Game rating
    **suggestions** (user confirms; never auto-changed), Practice next weighted by what keeps catching you
 4. Extras: partner records, trends
@@ -26,10 +26,12 @@ opening `index.html` from disk won't work.
 | Path | Purpose |
 |---|---|
 | `index.html` | Shell: top bar, `<main id="view">`, bottom nav (phones) |
-| `js/app.js` | Hash router, nav, service worker registration. Routes: `#/home`, `#/map`, `#/map/<positionId>`, `#/glossary`, `#/glossary?q=<search>`, `#/notes`, `#/game`, `#/settings` |
+| `js/app.js` | Hash router, nav, service worker registration. Routes: `#/home`, `#/map`, `#/map/<positionId>`, `#/glossary`, `#/glossary?q=<search>`, `#/notes`, `#/notes/new`, `#/notes/<id>`, `#/notes/<id>/edit`, `#/game`, `#/settings` |
 | `js/data.js` | All technique content (positions, edges, chains, steps) plus derived glossary data |
-| `js/store.js` | **The only module that touches persistence.** Async `get/set/exportAll/importAll` over IndexedDB. When accounts come, replace this file's internals with an API-backed version and keep the same interface |
+| `js/store.js` | **The only module that touches persistence.** Key/value (`get/set/del`) for small blobs and collections (`getAll/getOne/put/remove`) for records, over IndexedDB (DB version 2 added the `sessions` store). Also `exportAll/importAll` (backup schema 2 includes collections; schema 1 backups still import). When accounts come, replace this file's internals with an API-backed version and keep the same interface |
 | `js/ratings.js` | My Game ratings, skill list, Practice next scoring, radar SVG. Shared by Home and My Game |
+| `js/sessions.js` | Training log. **The session record format is documented at the top of this file.** Rolls reference POSITIONS ids and My Game skill keys (`submission|Armbar`), so step 3 can join log data to the map and ratings directly. Also drafts, partner history, week/month counts |
+| `js/views/notes.js` | Flow Notes list, and dispatcher to `session-detail.js` / `session-edit.js`. `notes-ui.js` holds render helpers shared with Home |
 | `js/ui.js` | Shared render helpers (`esc`, `subDetailHtml`, `positionLinks`, `matchesQuery`) and nav icons |
 | `js/views/*.js` | One module per page, each exporting `mount(el, route)` and optionally `unmount()` |
 | `js/version.js` + `sw.js` | Version number, in **two places**. Bump both on every release |

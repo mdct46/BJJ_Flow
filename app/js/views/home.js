@@ -3,6 +3,8 @@
 import { POSITIONS, EDGES, TECHNIQUE_COUNT } from '../data.js';
 import { esc } from '../ui.js';
 import { LEVELS, ALL_SKILLS, SKILL_TYPE_COLOR, SKILL_TYPE_NOUN, levelCounts, computePracticeNext } from '../ratings.js';
+import { allSessions, periodCounts } from '../sessions.js';
+import { sessionRow } from './notes-ui.js';
 
 export function mount(el){
   const dateStr = new Date().toLocaleDateString(undefined, {weekday:'long', month:'long', day:'numeric'});
@@ -10,6 +12,12 @@ export function mount(el){
   const total = ALL_SKILLS.length;
   const solid = counts[2] + counts[3];
   const picks = computePracticeNext(3);
+  const recent = allSessions().slice(0, 3);
+  const { week, month } = periodCounts();
+  const logHtml = recent.length
+    ? `<div class="log-counts"><span><b>${week}</b> this week</span><span><b>${month}</b> this month</span></div>
+       <div class="session-list compact">${recent.map(sessionRow).join('')}</div>`
+    : `<div class="empty-state">No sessions logged yet. Your recent training will show up here.</div>`;
 
   const levelBar = LEVELS.map((lvl,i)=> counts[i]
     ? `<span style="flex:${counts[i]};background:${lvl.color}" title="${lvl.label}: ${counts[i]}"></span>` : '').join('');
@@ -28,7 +36,7 @@ export function mount(el){
       <div class="home-date">${dateStr}</div>
       <h2 class="home-greet">Ready to roll?</h2>
 
-      <a class="cta" href="#/notes">
+      <a class="cta" href="#/notes/new">
         <span class="cta-plus">+</span>
         <span>
           <span class="cta-title">Log today’s training</span>
@@ -39,7 +47,7 @@ export function mount(el){
       <div class="home-grid">
         <section class="card">
           <div class="card-head"><h3>Training log</h3><a href="#/notes">View all</a></div>
-          <div class="empty-state">No sessions logged yet. Your recent training will show up here.</div>
+          ${logHtml}
         </section>
 
         <section class="card">

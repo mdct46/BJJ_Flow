@@ -1,6 +1,6 @@
 // Service worker: makes the app load offline and installable.
 // Bump VERSION (and APP_VERSION in js/version.js) on every release.
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 const CACHE = `bjj-flow-${VERSION}`;
 
 // Everything needed to run the app with no connection.
@@ -13,12 +13,16 @@ const SHELL = [
   './js/data.js',
   './js/store.js',
   './js/ratings.js',
+  './js/sessions.js',
   './js/ui.js',
   './js/version.js',
   './js/views/home.js',
   './js/views/map.js',
   './js/views/glossary.js',
   './js/views/notes.js',
+  './js/views/notes-ui.js',
+  './js/views/session-detail.js',
+  './js/views/session-edit.js',
   './js/views/game.js',
   './js/views/settings.js',
   './icons/icon.svg',

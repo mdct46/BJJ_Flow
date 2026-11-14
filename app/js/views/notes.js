@@ -1,21 +1,61 @@
-// Flow Notes page: training log. Placeholder until step 2 (session and roll logging).
-// Route: #/notes
-export function mount(el){
+// Flow Notes: training log.
+// Routes: #/notes (list), #/notes/new, #/notes/<id> (detail), #/notes/<id>/edit
+import { allSessions, periodCounts, parseISODate } from '../sessions.js';
+import { sessionRow } from './notes-ui.js';
+import * as detail from './session-detail.js';
+import * as editor from './session-edit.js';
+
+let child = null;
+
+export function mount(el, route){
+  if(route.param === 'new') child = editor;
+  else if(route.param && route.sub === 'edit') child = editor;
+  else if(route.param) child = detail;
+  else child = null;
+
+  if(child) return child.mount(el, route);
+  renderList(el);
+}
+
+export function unmount(){
+  if(child && child.unmount) child.unmount();
+  child = null;
+}
+
+function renderList(el){
+  const sessions = allSessions();
+  const { week, month, total } = periodCounts();
+
+  // Group by month: "November 2026"
+  const groups = [];
+  sessions.forEach(s=>{
+    const label = parseISODate(s.date).toLocaleDateString(undefined, { month:'long', year:'numeric' });
+    if(!groups.length || groups[groups.length-1].label !== label) groups.push({ label, items: [] });
+    groups[groups.length-1].items.push(s);
+  });
+
   el.innerHTML = `
     <div class="page"><div class="page-inner">
-      <h2 class="page-title">Flow Notes</h2>
-      <div class="card">
-        <div class="empty-state left">
-          <p><b>Your training log lives here.</b> This page is next on the build list.</p>
-          <p>Each session will capture:</p>
-          <ul>
-            <li>Date, session type and length</li>
-            <li>Positions and techniques you worked on, picked from the map</li>
-            <li>Every roll: partner, subs you hit, subs you got caught with, and from where</li>
-            <li>Quick notes on what clicked and what didn’t</li>
-          </ul>
-          <p>Logged results will feed the map and suggest updates to your My Game ratings.</p>
-        </div>
+      <div class="page-head">
+        <h2 class="page-title">Flow Notes</h2>
+        <a class="btn" href="#/notes/new">+ Log session</a>
       </div>
+
+      <div class="stat-row">
+        <div class="stat-box"><b>${week}</b><span>this week</span></div>
+        <div class="stat-box"><b>${month}</b><span>this month</span></div>
+        <div class="stat-box"><b>${total}</b><span>all time</span></div>
+      </div>
+
+      ${groups.length ? groups.map(g=>`
+        <div class="session-group">
+          <div class="session-group-title">${g.label}</div>
+          <div class="session-list">${g.items.map(sessionRow).join('')}</div>
+        </div>`).join('') : `
+        <div class="card">
+          <div class="empty-state">
+            No sessions yet. After your next class, tap <b>+ Log session</b> to note what you worked on and how your rolls went.
+          </div>
+        </div>`}
     </div></div>`;
 }
